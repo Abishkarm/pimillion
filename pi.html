@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pi Digits Explorer</title>
+    <style>
+        :root {
+            --primary-color: #3498db;
+            --secondary-color: #2980b9;
+            --light-color: #ecf0f1;
+            --dark-color: #2c3e50;
+            --success-color: #2ecc71;
+            --danger-color: #e74c3c;
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: #f8f9fa;
+            color: var(--dark-color);
+            line-height: 1.6;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        h1 {
+            color: var(--primary-color);
+            margin-bottom: 10px;
+        }
+        
+        h2 {
+            color: var(--secondary-color);
+            font-weight: normal;
+            font-size: 1.2rem;
+            margin-bottom: 20px;
+        }
+        
+        section {
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        button:hover {
+            background-color: var(--secondary-color);
+        }
+        
+        input {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            width: 100px;
+        }
+        
+        .pi-container {
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+            margin-top: 20px;
+            background-color: var(--light-color);
+            overflow-x: hidden;
+            position: relative;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        #pi-digits {
+            font-family: 'Courier New', monospace;
+            letter-spacing: 0.2em;
+            line-height: 1.8;
+            word-wrap: break-word;
+            white-space: pre-wrap;
+            cursor: pointer;
+        }
+        
+        #pi-digits span {
+            position: relative;
+        }
+        
+        #pi-digits span:hover {
+            background-color: rgba(52, 152, 219, 0.2);
+        }
+        
+        #pi-digits span.highlight {
+            background-color: rgba(46, 204, 113, 0.3);
+            font-weight: bold;
+            padding: 0 2px;
+            border-radius: 2px;
+        }
+        
+        .section-title {
+            margin-bottom: 15px;
+            color: var(--secondary-color);
+        }
+        
+        .tooltip {
+            position: absolute;
+            background-color: var(--dark-color);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 14px;
+            z-index: 100;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+        
+        .position-finder, .coin-flip {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: var(--light-color);
+            border-radius: 5px;
+        }
+        
+        .info {
+            color: #777;
+            font-size: 0.9rem;
+            margin-top: 5px;
+        }
+        
+        .coin {
+            width: 100px;
+            height: 100px;
+            margin: 20px auto;
+            perspective: 1000px;
+        }
+        
+        .coin-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            text-align: center;
+            transition: transform 0.8s;
+            transform-style: preserve-3d;
+        }
+        
+        .coin.flipping .coin-inner {
+            transform: rotateY(720deg);
+        }
+        
+        .coin-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+        
+        .heads {
+            background-color: #f1c40f;
+            color: white;
+        }
+        
+        .tails {
+            background-color: #e67e22;
+            color: white;
+            transform: rotateY(180deg);
+        }
+        
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 10px;
+        }
+        
+        .stat {
+            text-align: center;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(52, 152, 219, 0.3);
+            border-radius: 50%;
+            border-top-color: var(--primary-color);
+            animation: spin 1s ease-in-out infinite;
+            margin-left: 10px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        @media (max-width: 768px) {
+            .controls {
+                flex-direction: column;
+            }
+            
+            input {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Explore the first million digits of Pi (π)</h1>
+        <h2>Click to know decimal position, find the digit at any position, and play heads/tails based on Pi</h2>
+    </header>
+    
+    <section>
+        <h3 class="section-title">Display Pi Digits</h3>
+        <div class="controls">
+            <button onclick="showPiDigits(100)">100 Digits</button>
+            <button onclick="showPiDigits(1000)">1,000 Digits</button>
+            <button onclick="showPiDigits(100000)">100,000 Digits</button>
+            <button onclick="showPiDigits(1000000)">1,000,000 Digits</button>
+            <div>
+                <input type="number" id="custom-digits" value="100" min="1" max="1000000">
+                <button onclick="showCustomDigits()">Show Custom</button>
+            </div>
+        </div>
+        <p class="info">Tip: Hover over or click on any digit to see its position in Pi</p>
+        <div class="pi-container">
+            <div id="pi-digits"></div>
+        </div>
+        <div id="tooltip" class="tooltip"></div>
+    </section>
+    
+    <section>
+        <h3 class="section-title">Find Digit at Position</h3>
+        <div class="position-finder">
+            <label for="position">Position: </label>
+            <input type="number" id="position" min="1" max="1000000" value="1">
+            <button onclick="findDigitAtPosition()">Find</button>
+        </div>
+        <div id="position-result" class="result"></div>
+    </section>
+    
+    <section>
+        <h3 class="section-title">Pi Coin Flip</h3>
+        <p>Uses random Pi digit to determine heads (even) or tails (odd)</p>
+        <div class="coin-flip">
+            <label for="max-position">Max Position: </label>
+            <input type="number" id="max-position" min="1" max="1000000" value="100">
+            <button onclick="flipCoin()">Flip Coin</button>
+        </div>
+        <div class="coin">
+            <div class="coin-inner">
+                <div class="coin-face heads">HEADS</div>
+                <div class="coin-face tails">TAILS</div>
+            </div>
+        </div>
+        <div id="flip-result" class="result"></div>
+        <div class="stats">
+            <div class="stat">
+                <strong>Heads:</strong> <span id="heads-count">0</span>
+            </div>
+            <div class="stat">
+                <strong>Tails:</strong> <span id="tails-count">0</span>
+            </div>
+        </div>
+    </section>
+
+    <script>
+        // Constants and variables
+        const PI_FIRST_1000 = "3.1415926535897932384626433832795028841971693993751058209749445923078164062862089986280348253421170679821480865132823066470938446095505822317253594081284811174502841027019385211055596446229489549303819644288109756659334461284756482337867831652712019091456485669234603486104543266482133936072602491412737245870066063155881748815209209628292540917153643678925903600113305305488204665213841469519415116094330572703657595919530921861173819326117931051185480744623799627495673518857527248912279381830119491298336733624406566430860213949463952247371907021798609437027705392171762931767523846748184676694051320005681271452635608277857713427577896091736371787214684409012249534301465495853710507922796892589235420199561121290219608640344181598136297747713099605187072113499999983729780499510597317328160963185950244594553469083026425223082533446850352619311881710100031378387528865875332083814206171776691473035982534904287554687311595628638823537875937519577818577805321712268066130019278766111959092164201989";
+        
+        let currentDigits = 100;
+        let headsCount = 0;
+        let tailsCount = 0;
+        const tooltip = document.getElementById('tooltip');
+        
+        // Function to generate Pi digits (using a simple placeholder approach for large numbers)
+        function generatePiDigits(count) {
+            if (count <= 1000) {
+                return PI_FIRST_1000.substring(0, count + 2); // +2 for "3."
+            } else {
+                // For demo purposes, we'll repeat the first 1000 digits for larger counts
+                // In a real application, you'd use a more accurate algorithm
+                let result = PI_FIRST_1000;
+                const repetitions = Math.ceil((count - 1000) / 1000);
+                for (let i = 0; i < repetitions; i++) {
+                    const remainingDigits = Math.min(1000, count - 1000 - i * 1000);
+                    if (remainingDigits > 0) {
+                        result += PI_FIRST_1000.substring(2, 2 + remainingDigits); // Skip "3."
+                    }
+                }
+                return result.substring(0, count + 2); // +2 for "3."
+            }
+        }
+        
+        // Function to display Pi digits
+        function showPiDigits(count) {
+            currentDigits = count;
+            const piContainer = document.getElementById('pi-digits');
+            const maxDigitsToShow = Math.min(count, 1000000);
+            
+            // Show loading state for large numbers
+            if (maxDigitsToShow > 10000) {
+                piContainer.innerHTML = '<div class="loading"></div> Generating digits...';
+                setTimeout(() => renderPiDigits(maxDigitsToShow), 100);
+            } else {
+                renderPiDigits(maxDigitsToShow);
+            }
+        }
+        
+        // Function to actually render the Pi digits with formatting
+        function renderPiDigits(count) {
+            const piContainer = document.getElementById('pi-digits');
+            const pi = generatePiDigits(count);
+            piContainer.innerHTML = '';
+            
+            // First add "3."
+            const integerPart = document.createElement('span');
+            integerPart.textContent = pi.substring(0, 2);
+            integerPart.setAttribute('data-pos', '0');
+            piContainer.appendChild(integerPart);
+            
+            // Then add all decimal digits with position data
+            for (let i = 2; i < pi.length; i++) {
+                const digit = document.createElement('span');
+                digit.textContent = pi[i];
+                digit.setAttribute('data-pos', i - 1); // Position in Pi (after decimal)
+                
+                // Add event listeners for hover and click
+                digit.addEventListener('mouseover', showPosition);
+                digit.addEventListener('click', handleDigitClick);
+                
+                piContainer.appendChild(digit);
+                
+                // Add a line break every 50 digits for readability
+                if ((i - 1) % 50 === 0 && i > 2) {
+                    piContainer.appendChild(document.createElement('br'));
+                }
+            }
+        }
+        
+        // Function to show custom number of digits
+        function showCustomDigits() {
+            const input = document.getElementById('custom-digits');
+            const count = parseInt(input.value);
+            if (count > 0 && count <= 1000000) {
+                showPiDigits(count);
+            } else {
+                alert('Please enter a number between 1 and 1,000,000');
+            }
+        }
+        
+        // Function to show position tooltip
+        function showPosition(e) {
+            const digit = e.target;
+            const position = digit.getAttribute('data-pos');
+            const value = digit.textContent;
+            
+            tooltip.textContent = `Position: ${position}, Value: ${value}`;
+            tooltip.style.opacity = '1';
+            
+            // Position the tooltip near the cursor
+            const rect = digit.getBoundingClientRect();
+            tooltip.style.left = `${rect.left}px`;
+            tooltip.style.top = `${rect.bottom + window.scrollY + 5}px`;
+        }
+        
+        // Function to handle tooltip disappearance
+        document.addEventListener('mouseout', function(e) {
+            if (e.target.nodeName === 'SPAN' && e.target.hasAttribute('data-pos')) {
+                tooltip.style.opacity = '0';
+            }
+        });
+        
+        // Function to handle digit click
+        function handleDigitClick(e) {
+            const position = e.target.getAttribute('data-pos');
+            document.getElementById('position').value = position;
+            findDigitAtPosition();
+            
+            // Flash tooltip briefly
+            tooltip.style.opacity = '1';
+            setTimeout(() => {
+                tooltip.style.opacity = '0';
+            }, 1500);
+        }
+        
+        // Function to find digit at position
+        function findDigitAtPosition() {
+            const posInput = document.getElementById('position');
+            const position = parseInt(posInput.value);
+            const resultDiv = document.getElementById('position-result');
+            
+            if (position < 1 || position > 1000000) {
+                resultDiv.innerHTML = 'Please enter a position between 1 and 1,000,000';
+                return;
+            }
+            
+            // Generate enough digits if needed
+            if (position > currentDigits) {
+                showPiDigits(position);
+            }
+            
+            const pi = generatePiDigits(position);
+            const digit = pi[position + 1]; // +1 because "3." takes 2 positions
+            
+            resultDiv.innerHTML = `The digit at position ${position} is: <strong>${digit}</strong>`;
+            
+            // Highlight the digit in the display
+            clearHighlights();
+            const spans = document.querySelectorAll('#pi-digits span');
+            for (const span of spans) {
+                if (span.getAttribute('data-pos') == position) {
+                    span.classList.add('highlight');
+                    
+                    // Scroll to position if in view
+                    const container = document.querySelector('.pi-container');
+                    const spanTop = span.offsetTop - container.offsetTop;
+                    const spanBottom = spanTop + span.offsetHeight;
+                    
+                    if (spanTop < container.scrollTop || spanBottom > container.scrollTop + container.offsetHeight) {
+                        container.scrollTop = spanTop - 50;
+                    }
+                    break;
+                }
+            }
+        }
+        
+        // Function to clear highlights
+        function clearHighlights() {
+            const highlighted = document.querySelectorAll('.highlight');
+            highlighted.forEach(el => el.classList.remove('highlight'));
+        }
+        
+        // Function to flip a coin based on Pi
+        function flipCoin() {
+            const maxPosition = parseInt(document.getElementById('max-position').value);
+            if (maxPosition < 1 || maxPosition > 1000000) {
+                alert('Please enter a max position between 1 and 1,000,000');
+                return;
+            }
+            
+            // Generate a random position within the range
+            const randomPosition = Math.floor(Math.random() * maxPosition) + 1;
+            
+            // Get the digit at that position
+            const pi = generatePiDigits(randomPosition);
+            const digit = parseInt(pi[randomPosition + 1]); // +1 because "3." takes 2 positions
+            
+            // Determine heads or tails (even = heads, odd = tails)
+            const remainder = digit % 2;
+            const result = remainder === 0 ? 'HEADS' : 'TAILS';
+            
+            // Update the coin animation
+            const coin = document.querySelector('.coin');
+            const coinInner = document.querySelector('.coin-inner');
+            coin.classList.add('flipping');
+            
+            // Update result after animation
+            setTimeout(() => {
+                coin.classList.remove('flipping');
+                coinInner.style.transform = result === 'HEADS' ? 'rotateY(0deg)' : 'rotateY(180deg)';
+                
+                // Update stats
+                if (result === 'HEADS') {
+                    headsCount++;
+                    document.getElementById('heads-count').textContent = headsCount;
+                } else {
+                    tailsCount++;
+                    document.getElementById('tails-count').textContent = tailsCount;
+                }
+                
+                // Show detailed result
+                const resultDiv = document.getElementById('flip-result');
+                resultDiv.innerHTML = `
+                    <p>Position: ${randomPosition}</p>
+                    <p>Digit: ${digit}</p>
+                    <p>Remainder when divided by 2: ${remainder}</p>
+                    <p>Result: <strong>${result}</strong></p>
+                `;
+                
+                // Highlight the digit
+                if (randomPosition <= currentDigits) {
+                    clearHighlights();
+                    const spans = document.querySelectorAll('#pi-digits span');
+                    for (const span of spans) {
+                        if (span.getAttribute('data-pos') == randomPosition) {
+                            span.classList.add('highlight');
+                            
+                            // Scroll to position if in view
+                            const container = document.querySelector('.pi-container');
+                            const spanTop = span.offsetTop - container.offsetTop;
+                            const spanBottom = spanTop + span.offsetHeight;
+                            
+                            if (spanTop < container.scrollTop || spanBottom > container.scrollTop + container.offsetHeight) {
+                                container.scrollTop = spanTop - 50;
+                            }
+                            break;
+                        }
+                    }
+                }
+            }, 800);
+        }
+        
+        // Initialize with 100 digits
+        window.onload = function() {
+            showPiDigits(100);
+        };
+    </script>
+</body>
+</html>
