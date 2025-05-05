@@ -97,15 +97,19 @@
             position: relative;
             max-height: 300px;
             overflow-y: auto;
+            width: 100%;
         }
         
         #pi-digits {
             font-family: 'Courier New', monospace;
-            letter-spacing: 0.2em;
+            letter-spacing: 0.15em;
             line-height: 1.8;
             word-wrap: break-word;
-            white-space: pre-wrap;
+            word-break: break-all;
+            white-space: normal;
             cursor: pointer;
+            text-align: left;
+            width: 100%;
         }
         
         #pi-digits span {
@@ -261,7 +265,7 @@
                 <button onclick="showCustomDigits()">Show Custom</button>
             </div>
         </div>
-        <p class="info">Tip: Hover over or click on any digit to see its position in Pi</p>
+        <p class="info">Tip: Click on any digit to see its position in Pi</p>
         <div class="pi-container">
             <div id="pi-digits"></div>
         </div>
@@ -312,22 +316,40 @@
         let tailsCount = 0;
         const tooltip = document.getElementById('tooltip');
         
-        // Function to generate Pi digits (using a simple placeholder approach for large numbers)
+        // Function for generating Pi digits more efficiently
+        // Uses cached results for better performance
+        const piCache = {};
         function generatePiDigits(count) {
+            // Return from cache if available
+            if (piCache[count]) {
+                return piCache[count];
+            }
+            
             if (count <= 1000) {
-                return PI_FIRST_1000.substring(0, count + 2); // +2 for "3."
+                piCache[count] = PI_FIRST_1000.substring(0, count + 2); // +2 for "3."
+                return piCache[count];
             } else {
                 // For demo purposes, we'll repeat the first 1000 digits for larger counts
                 // In a real application, you'd use a more accurate algorithm
                 let result = PI_FIRST_1000;
                 const repetitions = Math.ceil((count - 1000) / 1000);
+                
+                // Generate in smaller chunks to avoid memory issues
                 for (let i = 0; i < repetitions; i++) {
                     const remainingDigits = Math.min(1000, count - 1000 - i * 1000);
                     if (remainingDigits > 0) {
                         result += PI_FIRST_1000.substring(2, 2 + remainingDigits); // Skip "3."
                     }
+                    
+                    // For very large numbers, don't build the whole string at once
+                    if (count > 100000 && i % 10 === 0) {
+                        piCache[i * 1000 + 1000] = result;
+                    }
                 }
-                return result.substring(0, count + 2); // +2 for "3."
+                
+                result = result.substring(0, count + 2); // +2 for "3."
+                piCache[count] = result;
+                return result;
             }
         }
         
@@ -338,12 +360,74 @@
             const maxDigitsToShow = Math.min(count, 1000000);
             
             // Show loading state for large numbers
-            if (maxDigitsToShow > 10000) {
-                piContainer.innerHTML = '<div class="loading"></div> Generating digits...';
-                setTimeout(() => renderPiDigits(maxDigitsToShow), 100);
-            } else {
-                renderPiDigits(maxDigitsToShow);
+            piContainer.innerHTML = '<div class="loading"></div> Generating digits...';
+            
+            // Use setTimeout to allow UI to update before heavy processing
+            setTimeout(() => {
+                // For very large numbers, we'll render in chunks to prevent UI freezing
+                if (maxDigitsToShow > 10000) {
+                    renderPiDigitsInChunks(maxDigitsToShow);
+                } else {
+                    renderPiDigits(maxDigitsToShow);
+                }
+            }, 100);
+        }
+        
+        // Function to render large number of digits in chunks to prevent UI freezing
+        function renderPiDigitsInChunks(totalCount) {
+            const piContainer = document.getElementById('pi-digits');
+            const pi = generatePiDigits(totalCount);
+            piContainer.innerHTML = '';
+            
+            // First add "3."
+            const integerPart = document.createElement('span');
+            integerPart.textContent = pi.substring(0, 2);
+            integerPart.setAttribute('data-pos', '0');
+            integerPart.addEventListener('click', handleDigitClick);
+            piContainer.appendChild(integerPart);
+            
+            // Calculate number of chunks needed (processing 5000 digits at a time)
+            const chunkSize = 5000;
+            const chunks = Math.ceil((pi.length - 2) / chunkSize);
+            
+            // Create a progress indicator
+            const progress = document.createElement('div');
+            progress.className = 'info';
+            progress.textContent = 'Processing: 0%';
+            piContainer.appendChild(progress);
+            
+            // Process chunks one by one with timeouts to allow UI updates
+            let chunkIndex = 0;
+            
+            function processNextChunk() {
+                if (chunkIndex >= chunks) {
+                    // All chunks processed
+                    progress.remove();
+                    return;
+                }
+                
+                const start = 2 + chunkIndex * chunkSize;
+                const end = Math.min(pi.length, start + chunkSize);
+                
+                for (let i = start; i < end; i++) {
+                    const digit = document.createElement('span');
+                    digit.textContent = pi[i];
+                    digit.setAttribute('data-pos', i - 1); // Position in Pi (after decimal)
+                    digit.addEventListener('click', handleDigitClick);
+                    piContainer.appendChild(digit);
+                }
+                
+                // Update progress
+                const percent = Math.round((chunkIndex + 1) * 100 / chunks);
+                progress.textContent = `Processing: ${percent}%`;
+                
+                // Process next chunk
+                chunkIndex++;
+                setTimeout(processNextChunk, 0);
             }
+            
+            // Start processing chunks
+            setTimeout(processNextChunk, 0);
         }
         
         // Function to actually render the Pi digits with formatting
@@ -356,6 +440,7 @@
             const integerPart = document.createElement('span');
             integerPart.textContent = pi.substring(0, 2);
             integerPart.setAttribute('data-pos', '0');
+            integerPart.addEventListener('click', handleDigitClick);
             piContainer.appendChild(integerPart);
             
             // Then add all decimal digits with position data
@@ -364,16 +449,10 @@
                 digit.textContent = pi[i];
                 digit.setAttribute('data-pos', i - 1); // Position in Pi (after decimal)
                 
-                // Add event listeners for hover and click
-                digit.addEventListener('mouseover', showPosition);
+                // Add click event listener only (no hover)
                 digit.addEventListener('click', handleDigitClick);
                 
                 piContainer.appendChild(digit);
-                
-                // Add a line break every 50 digits for readability
-                if ((i - 1) % 50 === 0 && i > 2) {
-                    piContainer.appendChild(document.createElement('br'));
-                }
             }
         }
         
@@ -388,40 +467,38 @@
             }
         }
         
-        // Function to show position tooltip
-        function showPosition(e) {
+        // Function to handle digit click
+        function handleDigitClick(e) {
+            const position = e.target.getAttribute('data-pos');
+            document.getElementById('position').value = position;
+            
+            // Show position in tooltip
             const digit = e.target;
-            const position = digit.getAttribute('data-pos');
             const value = digit.textContent;
             
             tooltip.textContent = `Position: ${position}, Value: ${value}`;
             tooltip.style.opacity = '1';
             
-            // Position the tooltip near the cursor
+            // Position the tooltip near the clicked digit
             const rect = digit.getBoundingClientRect();
             tooltip.style.left = `${rect.left}px`;
             tooltip.style.top = `${rect.bottom + window.scrollY + 5}px`;
+            
+            // Find digit at position
+            findDigitAtPosition();
+            
+            // Hide tooltip after a delay
+            setTimeout(() => {
+                tooltip.style.opacity = '0';
+            }, 2000);
         }
         
         // Function to handle tooltip disappearance
         document.addEventListener('mouseout', function(e) {
-            if (e.target.nodeName === 'SPAN' && e.target.hasAttribute('data-pos')) {
+            if (!e.target.matches('#pi-digits span')) {
                 tooltip.style.opacity = '0';
             }
         });
-        
-        // Function to handle digit click
-        function handleDigitClick(e) {
-            const position = e.target.getAttribute('data-pos');
-            document.getElementById('position').value = position;
-            findDigitAtPosition();
-            
-            // Flash tooltip briefly
-            tooltip.style.opacity = '1';
-            setTimeout(() => {
-                tooltip.style.opacity = '0';
-            }, 1500);
-        }
         
         // Function to find digit at position
         function findDigitAtPosition() {
