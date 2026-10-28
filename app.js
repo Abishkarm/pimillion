@@ -1,0 +1,16 @@
+'use strict';
+const $=id=>document.getElementById(id);let digits='',start=1,lastQuery='',match=-1,wins=0,plays=0,heads=0,tails=0;
+const buttons=[...document.querySelectorAll('button')];buttons.forEach(b=>b.disabled=true);
+function integer(id,max){const n=Number($(id).value);if(!Number.isInteger(n)||n<1||n>max)throw Error(`Enter a whole number between 1 and ${max.toLocaleString()}.`);return n}
+function randomInt(n){const a=new Uint32Array(1),limit=4294967296-4294967296%n;do{crypto.getRandomValues(a)}while(a[0]>=limit);return a[0]%n}
+function render(pos){start=pos;$('position').value=pos;const end=Math.min(pos+999,digits.length);$('range').textContent=`Decimal positions ${pos.toLocaleString()}–${end.toLocaleString()} of 1,000,000`;$('pi-digits').replaceChildren();const f=document.createDocumentFragment();for(let i=pos-1;i<end;i++){const b=document.createElement('button');b.textContent=digits[i];b.setAttribute('aria-label',`Digit ${digits[i]} at decimal position ${i+1}`);b.onclick=()=>{$('selected').textContent=`Digit ${digits[i]} · decimal position ${(i+1).toLocaleString()}`};f.appendChild(b)}$('pi-digits').appendChild(f);$('prev').disabled=pos===1;$('next').disabled=end===digits.length}
+function act(id,out,fn){$(id).onclick=()=>{try{fn()}catch(e){$(out).textContent=e.message}}}
+act('go','selected',()=>render(integer('position',digits.length)));
+act('prev','selected',()=>render(Math.max(1,start-1000)));act('next','selected',()=>render(Math.min(digits.length,start+1000)));
+function search(next){const q=$('query').value;if(!/^\d{1,30}$/.test(q))throw Error('Enter 1 to 30 digits, without spaces.');const offset=next&&q===lastQuery?match+1:0;match=digits.indexOf(q,offset);lastQuery=q;$('found').textContent=match<0?'No further match in the first million decimal digits.':`“${q}” begins at decimal position ${(match+1).toLocaleString()}.`;if(match>=0)render(match+1)}
+act('search','found',()=>search(false));act('again','found',()=>search(true));
+act('random','random-result',()=>{const n=integer('length',30),i=randomInt(digits.length-n+1);$('random-result').textContent=`${digits.slice(i,i+n)} · decimal positions ${(i+1).toLocaleString()}–${(i+n).toLocaleString()}`;render(i+1)});
+function score(){$('score').textContent=`${wins} wins / ${plays} plays · Heads ${heads} · Tails ${tails}`}
+function flip(guess){const i=randomInt(digits.length),d=Number(digits[i]),result=d%2?'tails':'heads';plays++;if(result===guess)wins++;if(result==='heads')heads++;else tails++;$('coin').textContent=`${result.toUpperCase()} — ${result===guess?'You won!':'Try again!'} Digit ${d} at decimal position ${(i+1).toLocaleString()}.`;score()}
+act('heads','coin',()=>flip('heads'));act('tails','coin',()=>flip('tails'));act('reset','coin',()=>{wins=plays=heads=tails=0;score();$('coin').textContent='Ready to flip'});
+fetch('pi-million.txt').then(r=>{if(!r.ok)throw Error('Could not load digits');return r.text()}).then(s=>{if(!/^\d{1000000}$/.test(s)||!s.startsWith('141592653589793238462643383279'))throw Error('Digit file failed validation');digits=s;buttons.forEach(b=>b.disabled=false);render(1);$('status').textContent='1,000,000 decimal digits ready.'}).catch(()=>{$('status').textContent='Could not load the digit file. Please reload to try again.'});
