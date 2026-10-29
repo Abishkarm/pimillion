@@ -1,0 +1,38 @@
+name: Publish Pimillion
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: pages
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Download billion-digit release
+        run: curl --fail --location --retry 3 --output "$RUNNER_TEMP/pi-1b.txt" https://github.com/Abishkarm/pimillion/releases/download/pi-digits-1b/pi-1b.txt
+      - name: Verify and build compressed sections
+        run: node build-pages.cjs "$RUNNER_TEMP/pi-1b.txt"
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Publish website
+        id: deployment
+        uses: actions/deploy-pages@v4
