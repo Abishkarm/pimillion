@@ -1,25 +1,36 @@
 'use strict';
 const $=id=>document.getElementById(id);
 const TOTAL=1000000000, BLOCK=1000000;
-let digits='',total=TOTAL,pageSize=1000,start=1,page='',ready=false,remote=false,localFile=null;
+let digits='',total=TOTAL,pageSize=1000,start=1,page='',ready=false,manifest=null;
 let wins=0,plays=0,heads=0,tails=0,renderToken=0,searchController=null,lastQuery='',match=-1,lastBounds='';
 const cache=new Map();
 const colors=['#9caeff','#69d7d0','#e5b968','#cda1ef','#8bc6f7','#ed9dac','#94d0a1','#eab589','#a7b8da','#d9c5a3'];
 function integer(id,max){const n=Number($(id).value);if(!Number.isInteger(n)||n<1||n>max)throw Error(`Enter a whole number between 1 and ${max.toLocaleString()}.`);return n;}
 function randomInt(n){const a=new Uint32Array(1),limit=4294967296-4294967296%n;do{crypto.getRandomValues(a);}while(a[0]>=limit);return a[0]%n;}
-async function read(pos,length,signal){
-  if(pos<1||length<1||pos+length-1>total)throw Error('That range is outside the active digit library.');
+async function loadChunk(index,signal){
   signal?.throwIfAborted();
-  if(localFile){const text=await localFile.slice(pos-1,pos-1+length).text();if(!/^\d+$/.test(text)||text.length!==length)throw Error('Invalid digits in the selected file.');return text;}
-  if(pos+length-1<=digits.length)return digits.slice(pos-1,pos-1+length);
-  if(!remote)throw Error('Start the Pimillion server or open the downloaded 1b.txt file to use billion-digit positions.');
-  const key=pos+':'+length;if(cache.has(key))return cache.get(key);
-  const response=await fetch(`/api/pi?start=${pos}&length=${length}`,{signal:signal||AbortSignal.timeout(25000)});
-  if(!response.ok)throw Error('Could not load that range. Please try again.');
-  const text=await response.text();if(text.length!==length||!/^\d+$/.test(text))throw Error('Digit source returned an invalid range.');
-  if(cache.size>=8)cache.delete(cache.keys().next().value);cache.set(key,text);return text;
+  if(cache.has(index))return cache.get(index);
+  const expectedHash=manifest.hashes[index];
+  const response=await fetch('data/'+String(index).padStart(4,'0')+'.bin?v='+expectedHash.slice(0,16),{signal:signal||AbortSignal.timeout(30000)});
+  if(!response.ok)throw Error('Could not load this digit section. Please try again.');
+  const compressed=await response.arrayBuffer();
+  const digest=await crypto.subtle.digest('SHA-256',compressed);
+  const actualHash=[...new Uint8Array(digest)].map(n=>n.toString(16).padStart(2,'0')).join('');
+  if(actualHash!==expectedHash)throw Error('Digit section failed verification. Refresh and try again.');
+  const stream=new Blob([compressed]).stream().pipeThrough(new DecompressionStream('gzip'));
+  const text=await new Response(stream).text();
+  signal?.throwIfAborted();
+  if(text.length!==BLOCK||!/^\d+$/.test(text))throw Error('Invalid digit section.');
+  if(cache.size>=8)cache.delete(cache.keys().next().value);cache.set(index,text);return text;
 }
-function act(id,out,fn){$(id).onclick=async()=>{const button=$(id);button.disabled=true;try{await fn();}catch(e){if(e.name!=='AbortError')$(out).textContent=e.message;}finally{button.disabled=false;}};}
+async function read(pos,length,signal){
+  if(!manifest)throw Error('The digit library is still connecting.');
+  if(!Number.isInteger(pos)||!Number.isInteger(length)||pos<1||length<1||pos+length-1>total)throw Error('That range is outside the active digit library.');
+  let offset=pos-1,remaining=length,result='';
+  while(remaining){const index=Math.floor(offset/BLOCK),within=offset%BLOCK,n=Math.min(remaining,BLOCK-within);const text=await loadChunk(index,signal);result+=text.slice(within,within+n);offset+=n;remaining-=n;}
+  return result;
+}
+function act(id,out,fn){$(id).onclick=async()=>{const button=$(id);button.disabled=true;try{await fn();}catch(e){if(e.name!=='AbortError')$(out).textContent=e.message;}finally{button.disabled=false;if(ready){$('prev').disabled=start===1;$('next').disabled=start+page.length-1===total;}} };}
 async function render(pos){
   const token=++renderToken,end=Math.min(pos+pageSize-1,total);$('range').textContent='Loading decimal positions '+pos.toLocaleString()+'–'+end.toLocaleString()+'…';
   const text=await read(pos,end-pos+1);if(token!==renderToken)return;
@@ -62,7 +73,13 @@ act('copy','selected',async()=>{try{await navigator.clipboard.writeText(page);$(
 $('position').onkeydown=e=>{if(e.key==='Enter'&&ready)$('go').click();};$('query').onkeydown=e=>{if(e.key==='Enter'&&ready)$('search').click();};
 act('memory-check','memory-result',async()=>{const v=$('memory-input').value;if(!/^\d{1,10000}$/.test(v))throw Error('Type 1 to 10,000 decimal digits, starting with 14159.');const expected=await read(1,v.length);let n=0;while(n<v.length&&v[n]===expected[n])n++;$('memory-result').textContent=n===v.length?'Perfect! '+n+' correct digits. Keep going!':n+' correct digits. Position '+(n+1)+' should be '+expected[n]+'. Try again!';});
 function drawBars(){const counts=Array(10).fill(0);for(const d of digits)counts[Number(d)]++;const max=Math.max(...counts);$('bars').replaceChildren();counts.forEach((n,i)=>{const item=document.createElement('div');item.className='bar-item';const label=document.createElement('small');label.textContent=(n/10000).toFixed(2)+'%';const bar=document.createElement('div');bar.className='bar';bar.style.height=(n/max*120)+'px';bar.title=n.toLocaleString()+' occurrences of '+i;const digit=document.createElement('b');digit.textContent=i;item.append(label,bar,digit);$('bars').append(item);});}
-$('local-file').onchange=async()=>{searchController?.abort();const file=$('local-file').files[0];if(!file)return;try{if(file.size!==TOTAL||await file.slice(0,20).text()!=='14159265358979323846')throw Error('Choose the 1,000,000,000-byte pi-1b.txt file from your GitHub release.');localFile=file;total=TOTAL;cache.clear();digits=await file.slice(0,BLOCK).text();drawBars();ready=true;dataButtons.forEach(b=>b.disabled=false);$('status').textContent='1,000,000,000 decimal digits ready from your local file.';await render(1);}catch(e){$('status').textContent=e.message;}};
-const dataButtons=[...document.querySelectorAll('button')].filter(b=>!['theme','cancel-search'].includes(b.id));dataButtons.forEach(b=>b.disabled=true);
-(async()=>{try{const r=await fetch('/api/pi?start=1&length=1000000',{signal:AbortSignal.timeout(30000)});if(!r.ok)throw Error();digits=await r.text();if(!/^\d{1000000}$/.test(digits)||!digits.startsWith('14159265358979323846'))throw Error();remote=true;drawBars();ready=true;dataButtons.forEach(b=>b.disabled=false);await render(1);$('status').textContent='1,000,000,000 decimal digits ready · loaded on demand from your GitHub release.';
-}catch{$('status').textContent='Billion-digit connection unavailable. Start the Pimillion server or open your downloaded pi-1b.txt file above.';}})();
+const dataButtons=[...document.querySelectorAll('button')].filter(b=>!['theme','cancel-search','retry'].includes(b.id));dataButtons.forEach(b=>b.disabled=true);
+$('retry').onclick=()=>location.reload();
+(async()=>{try{
+  if(typeof DecompressionStream==='undefined')throw Error('Please use a current browser that supports compressed digit sections.');
+  const response=await fetch('data/manifest.json',{cache:'no-store',signal:AbortSignal.timeout(30000)});if(!response.ok)throw Error('Could not connect to the digit library.');
+  manifest=await response.json();
+  if(manifest.total!==TOTAL||manifest.chunkSize!==BLOCK||manifest.hashes?.length!==1000||!manifest.hashes.every(h=>/^[a-f0-9]{64}$/.test(h)))throw Error('Invalid digit library manifest.');
+  digits=await read(1,BLOCK);if(!digits.startsWith('14159265358979323846'))throw Error('Digit library prefix failed verification.');
+  drawBars();ready=true;dataButtons.forEach(b=>b.disabled=false);await render(1);$('status').textContent='1,000,000,000 decimal digits ready · sections load automatically as you explore.';
+}catch(e){$('status').textContent=e.message+' Refresh to retry.';}})();
