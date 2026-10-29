@@ -1,10 +1,10 @@
-# Pimillion
+# Pi Billion
 
 Explore one billion decimal digits of pi on GitHub Pages. Digits load automatically; no file picker or application server is needed.
 
 ## Publishing
 
-The Publish Pimillion workflow runs on pushes to main and can also be started manually. It downloads the billion-digit release attachment, verifies the entire source SHA-256, splits it into 1,000 compressed sections and deploys the static dist folder to GitHub Pages. Keep the repository's Pages publishing source set to GitHub Actions.
+The Publish Pi Billion workflow runs on pushes to main and can also be started manually. It downloads the billion-digit release attachment, verifies the entire source SHA-256, splits it into 1,000 compressed sections and deploys the static dist folder to GitHub Pages. Keep the repository's Pages publishing source set to GitHub Actions.
 
 The browser requests only sections needed for browsing, searching, random numbers or the Heads/Tails game. It checks each section's SHA-256 before decompressing it. All requests stay on the website's own origin. The first section supplies the labeled million-digit frequency sample. At most eight decompressed sections are cached in memory.
 

@@ -13,4 +13,4 @@ const server=http.createServer((req,res)=>{
   const type=name.endsWith('.html')?'text/html; charset=utf-8':name.endsWith('.js')?'application/javascript; charset=utf-8':name.endsWith('.json')?'application/json':'application/octet-stream';
   res.writeHead(200,{'Content-Type':type,'Cache-Control':'no-cache'});fs.createReadStream(target).pipe(res);
 });
-server.listen(Number(process.env.PORT)||12021,'127.0.0.1',()=>console.log('Pimillion static preview: http://127.0.0.1:'+server.address().port));
+server.listen(Number(process.env.PORT)||12021,'127.0.0.1',()=>console.log('Pi Billion static preview: http://127.0.0.1:'+server.address().port));

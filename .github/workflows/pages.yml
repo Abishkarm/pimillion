@@ -1,4 +1,4 @@
-name: Publish Pimillion
+name: Publish Pi Billion
 on:
   push:
     branches: [main]
