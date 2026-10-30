@@ -27,3 +27,9 @@ Size: 1,000,000,000 bytes. Position 1 is the first digit after the decimal point
 SHA-256: ef0a513ee398d5dbe1ed6994c222e03a16fcfe91f5de685691953d35961798e5
 
 Choose Heads or Tails using the separate buttons beside the centered coin. Even digits mean heads and odd digits mean tails. Each result shows the sampled digit and decimal position. This mapping is not guaranteed to be an exactly fair coin.
+
+## Full digit file in this repository
+
+pibillion.txt contains exactly 1,000,000,000 decimal digits and is tracked using Git LFS because it exceeds GitHub’s normal file size limit. Install Git LFS before cloning to retrieve the complete file, or use the file’s Download button on GitHub. Its SHA-256 matches the source above. GitHub may show the small LFS reference in its code viewer; the downloaded LFS object is the full billion-digit file. The website continues serving compressed sections automatically.
+
+generate-pi.cjs is an optional million-digit sample generator. It writes pi-million.txt and never replaces the billion-digit file.

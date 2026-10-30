@@ -32,10 +32,10 @@ async function read(pos,length,signal){
 }
 function act(id,out,fn){$(id).onclick=async()=>{const button=$(id);button.disabled=true;try{await fn();}catch(e){if(e.name!=='AbortError')$(out).textContent=e.message;}finally{button.disabled=false;if(ready){$('prev').disabled=start===1;$('next').disabled=start+page.length-1===total;}} };}
 async function render(pos){
-  const token=++renderToken,end=Math.min(pos+pageSize-1,total);$('range').textContent='Loading decimal positions '+pos.toLocaleString()+'–'+end.toLocaleString()+'…';
+  const token=++renderToken,end=Math.min(pos+pageSize-1,total);$('range').textContent='Finding the digit at decimal position '+pos.toLocaleString()+'…';
   const text=await read(pos,end-pos+1);if(token!==renderToken)return;
-  start=pos;page=text;$('position').value=pos;$('range').textContent=`Decimal positions ${pos.toLocaleString()}–${end.toLocaleString()} of ${total.toLocaleString()}`;
-  const f=document.createDocumentFragment();for(let i=0;i<text.length;i++){const b=document.createElement('button');b.textContent=text[i];if($('colorize').checked)b.style.color=colors[Number(text[i])];b.setAttribute('aria-label',`Digit ${text[i]} at decimal position ${pos+i}`);b.onclick=()=>{document.querySelectorAll('#pi-digits .active').forEach(el=>el.classList.remove('active'));b.classList.add('active');$('selected').textContent=`Digit ${text[i]} · decimal position ${(pos+i).toLocaleString()}`;};f.append(b);}
+  start=pos;page=text;$('position').value=pos;$('range').textContent=`Decimal position ${pos.toLocaleString()} → digit ${text[0]}`;$('page-range').textContent=`Browsing nearby digits: ${pos.toLocaleString()}–${end.toLocaleString()} of ${total.toLocaleString()}`;
+  const f=document.createDocumentFragment();for(let i=0;i<text.length;i++){const b=document.createElement('button');b.textContent=text[i];if(i===0)b.classList.add('active');if($('colorize').checked)b.style.color=colors[Number(text[i])];b.setAttribute('aria-label',`Digit ${text[i]} at decimal position ${pos+i}`);b.onclick=()=>{document.querySelectorAll('#pi-digits .active').forEach(el=>el.classList.remove('active'));b.classList.add('active');$('position').value=pos+i;$('range').textContent=`Decimal position ${(pos+i).toLocaleString()} → digit ${text[i]}`;$('selected').textContent='';};f.append(b);}
   $('pi-digits').replaceChildren(f);$('prev').disabled=pos===1;$('next').disabled=end===total;
 }
 act('go','selected',()=>render(integer('position',total)));
