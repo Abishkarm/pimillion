@@ -30,6 +30,16 @@ async function read(pos,length,signal){
   while(remaining){const index=Math.floor(offset/BLOCK),within=offset%BLOCK,n=Math.min(remaining,BLOCK-within);const text=await loadChunk(index,signal);result+=text.slice(within,within+n);offset+=n;remaining-=n;}
   return result;
 }
+let numberText='';
+async function readNumber(){
+  numberText='';$('number-value').textContent='';$('copy-number').disabled=true;
+  const pos=integer('number-position',total),count=integer('number-count',10000);
+  if(count>total-pos+1)throw Error('Only '+(total-pos+1).toLocaleString()+' digit(s) remain from this position. Choose a smaller count.');
+  $('number-info').textContent='Reading '+count.toLocaleString()+' digits from decimal position '+pos.toLocaleString()+'…';
+  numberText=await read(pos,count);$('number-value').textContent=numberText;
+  $('number-info').textContent=count.toLocaleString()+' digit'+(count===1?'':'s')+' · decimal position'+(count===1?'':'s')+' '+pos.toLocaleString()+(count===1?'':'–'+(pos+count-1).toLocaleString());
+  $('copy-number').disabled=false;
+}
 function act(id,out,fn){$(id).onclick=async()=>{const button=$(id);button.disabled=true;try{await fn();}catch(e){if(e.name!=='AbortError')$(out).textContent=e.message;}finally{button.disabled=false;if(ready){$('prev').disabled=start===1;$('next').disabled=start+page.length-1===total;}} };}
 async function render(pos){
   const token=++renderToken,end=Math.min(pos+pageSize-1,total);$('range').textContent='Finding the digit at decimal position '+pos.toLocaleString()+'…';
@@ -38,6 +48,9 @@ async function render(pos){
   const f=document.createDocumentFragment();for(let i=0;i<text.length;i++){const b=document.createElement('button');b.textContent=text[i];if(i===0)b.classList.add('active');if($('colorize').checked)b.style.color=colors[Number(text[i])];b.setAttribute('aria-label',`Digit ${text[i]} at decimal position ${pos+i}`);b.onclick=()=>{document.querySelectorAll('#pi-digits .active').forEach(el=>el.classList.remove('active'));b.classList.add('active');$('position').value=pos+i;$('range').textContent=`Decimal position ${(pos+i).toLocaleString()} → digit ${text[i]}`;$('selected').textContent='';};f.append(b);}
   $('pi-digits').replaceChildren(f);$('prev').disabled=pos===1;$('next').disabled=end===total;
 }
+act('read-number','number-info',readNumber);
+act('copy-number','number-info',async()=>{if(!numberText)throw Error('Look up a number first.');try{await navigator.clipboard.writeText(numberText);$('number-info').textContent='Number copied to clipboard.';}catch{$('number-info').textContent='Clipboard unavailable. Select the displayed digits to copy them.';}});
+for(const id of ['number-position','number-count'])$(id).onkeydown=e=>{if(e.key==='Enter'&&ready)$('read-number').click();};
 act('go','selected',()=>render(integer('position',total)));
 act('prev','selected',()=>render(Math.max(1,start-pageSize)));
 act('next','selected',()=>render(Math.min(total,start+pageSize)));
@@ -73,7 +86,7 @@ act('copy','selected',async()=>{try{await navigator.clipboard.writeText(page);$(
 $('position').onkeydown=e=>{if(e.key==='Enter'&&ready)$('go').click();};$('query').onkeydown=e=>{if(e.key==='Enter'&&ready)$('search').click();};
 act('memory-check','memory-result',async()=>{const v=$('memory-input').value;if(!/^\d{1,10000}$/.test(v))throw Error('Type 1 to 10,000 decimal digits, starting with 14159.');const expected=await read(1,v.length);let n=0;while(n<v.length&&v[n]===expected[n])n++;$('memory-result').textContent=n===v.length?'Perfect! '+n+' correct digits. Keep going!':n+' correct digits. Position '+(n+1)+' should be '+expected[n]+'. Try again!';});
 function drawBars(){const counts=Array(10).fill(0);for(const d of digits)counts[Number(d)]++;const max=Math.max(...counts);$('bars').replaceChildren();counts.forEach((n,i)=>{const item=document.createElement('div');item.className='bar-item';const label=document.createElement('small');label.textContent=(n/10000).toFixed(2)+'%';const bar=document.createElement('div');bar.className='bar';bar.style.height=(n/max*120)+'px';bar.title=n.toLocaleString()+' occurrences of '+i;const digit=document.createElement('b');digit.textContent=i;item.append(label,bar,digit);$('bars').append(item);});}
-const dataButtons=[...document.querySelectorAll('button')].filter(b=>!['theme','cancel-search','retry'].includes(b.id));dataButtons.forEach(b=>b.disabled=true);
+const dataButtons=[...document.querySelectorAll('button')].filter(b=>!['theme','cancel-search','retry','copy-number'].includes(b.id));dataButtons.forEach(b=>b.disabled=true);
 $('retry').onclick=()=>location.reload();
 (async()=>{try{
   if(typeof DecompressionStream==='undefined')throw Error('Please use a current browser that supports compressed digit sections.');
